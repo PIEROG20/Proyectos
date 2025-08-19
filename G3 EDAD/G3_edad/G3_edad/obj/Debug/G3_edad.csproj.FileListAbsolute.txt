@@ -1,0 +1,16 @@
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\bin\Debug\G3_edad.exe.config
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\bin\Debug\G3_edad.exe
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\bin\Debug\G3_edad.pdb
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.csproj.AssemblyReference.cache
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.Form1.resources
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.Properties.Resources.resources
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.csproj.GenerateResource.cache
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.csproj.CoreCompileInputs.cache
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.exe
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.pdb
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.exe.config
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.Forms.sistema_de_ventas.resources
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.Forms.cliente.resources
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.Forms.compra.resources
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.Forms.producto.resources
+C:\Users\PIEROGC\Videos\G3 EDAD\G3_edad\G3_edad\obj\Debug\G3_edad.Forms.stock.resources
