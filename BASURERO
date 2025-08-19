@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Basurero inteligente 3D – Three.js</title>
+  <style>
+    :root{--bg:#0b1020;--panel:#101938;--accent:#36d399;--text:#e9eefb;--muted:#9fb0d5}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:radial-gradient(1200px 600px at 80% -20%,#1a2550 0%,transparent 60%),radial-gradient(1000px 600px at -20% 120%,#14314b 0%,transparent 50%),var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    #app{display:grid;grid-template-columns:1fr 360px;gap:14px;height:100%;padding:14px}
+    @media (max-width:1100px){#app{grid-template-columns:1fr}}
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,.05),transparent);border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:12px}
+    canvas{display:block;border-radius:16px;width:100%;height:100%}
+    h1{margin:0 0 8px;font-size:20px}
+    .sub{color:var(--muted);font-size:13px;margin-bottom:8px}
+    .controls{display:grid;gap:10px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    button{cursor:pointer;border:none;border-radius:12px;padding:10px 12px;font-weight:700;background:#1a254b;color:#dceafe}
+    button.primary{background:linear-gradient(180deg,var(--accent),#1dbb84);color:#073a2f}
+    input[type="range"]{width:100%}
+    .stat{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:12px;background:#0f1835;border:1px solid rgba(255,255,255,.08)}
+    .dot{width:10px;height:10px;border-radius:999px;background:#ef4444;box-shadow:0 0 12px rgba(239,68,68,.6)}
+    .dot.on{background:#10b981;box-shadow:0 0 12px rgba(16,185,129,.7)}
+    .log{height:140px;overflow:auto;background:#0f1835;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px;font-family:ui-monospace,Consolas,monospace;white-space:pre-wrap}
+    .kbd{font-family:ui-monospace,Consolas,monospace;background:#121a33;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:2px 6px}
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="panel" style="position:relative;min-height:520px">
+      <canvas id="c"></canvas>
+      <div style="position:absolute;left:12px;bottom:12px;background:rgba(15,24,53,.7);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(6px);padding:8px 10px;border-radius:10px;font-size:12px">
+        <b>Tips:</b> Arrastra para orbitar, rueda para acercar. Haz click en <span class="kbd">Simular</span> para probar mensajes.
+      </div>
+    </div>
+
+    <div class="panel">
+      <h1>Basurero inteligente 3D</h1>
+      <div class="sub">Modelo paramétrico con tapa articulada, aro LED, sensor y altavoz. Simula movimiento, depósito, mensajes y jingle.</div>
+
+      <div class="stat"><div><span class="dot" id="sDot"></span> <b id="sTxt">Reposo</b></div><div>Ángulo tapa: <b id="ang">0°</b></div></div>
+
+      <div class="controls">
+        <div>
+          <small>Umbral de distancia (cm)</small>
+          <input id="th" type="range" min="10" max="80" value="35">
+        </div>
+        <div>
+          <small>Tiempo cierre automático (s)</small>
+          <input id="autoclose" type="range" min="2" max="20" value="6">
+        </div>
+        <div>
+          <small>Cooldown mensajes (s)</small>
+          <input id="cooldown" type="range" min="1" max="15" value="4">
+        </div>
+        <div>
+          <small>Volumen</small>
+          <input id="vol" type="range" min="0" max="100" value="80">
+        </div>
+        <div class="row">
+          <button class="primary" id="btnDetect">Simular detección</button>
+          <button id="btnDrop">Simular depósito</button>
+          <button id="btnToggle">Abrir/Cerrar</button>
+        </div>
+        <div class="row">
+          <button id="btnWire">Vista alámbrica</button>
+          <button id="btnExport">Exportar GLB</button>
+        </div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // --- Use an ESM-friendly CDN so example modules can resolve their internal "three" imports ---
+    import * as THREE from 'https://esm.sh/three@0.160.0';
+    import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+    import { GLTFExporter } from 'https://esm.sh/three@0.160.0/examples/jsm/exporters/GLTFExporter.js';
+
+    const canvas = document.getElementById('c');
+    const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1,2));
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1020);
+
+    // Cámara
+    const camera = new THREE.PerspectiveCamera(45, 2, 0.1, 100);
+    camera.position.set(2.8, 2.2, 3.6);
+
+    // Controles
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0.9, 0);
+    controls.update();
+
+    // Luces
+    const hemi = new THREE.HemisphereLight(0xbfdcff, 0x223355, 0.8);
+    scene.add(hemi);
+    const key = new THREE.DirectionalLight(0xffffff, 1.2); key.position.set(3,4,2); key.castShadow=true; scene.add(key);
+    const rim = new THREE.DirectionalLight(0x66aaff, 0.6); rim.position.set(-3,2,-3); scene.add(rim);
+
+    renderer.shadowMap.enabled = true;
+
+    // Suelo
+    const groundGeo = new THREE.PlaneGeometry(10,10);
+    const groundMat = new THREE.MeshStandardMaterial({ color:0x09122b, roughness:0.95, metalness:0.0 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI/2; ground.position.y = 0; ground.receiveShadow=true; scene.add(ground);
+
+    // ====== Modelo paramétrico del basurero ======
+    const group = new THREE.Group(); scene.add(group);
+
+    // Cuerpo
+    const bodyGeo = new THREE.CylinderGeometry(0.5, 0.6, 1.0, 48, 1, false);
+    const bodyMat = new THREE.MeshStandardMaterial({ color:0x0f1b3c, roughness:0.45, metalness:0.25, envMapIntensity:0.6 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat); body.castShadow=true; body.receiveShadow=true; body.position.y = 0.5; group.add(body);
+
+    // Bisel superior (borde)
+    const rimGeo = new THREE.TorusGeometry(0.53, 0.03, 16, 64);
+    const rimMat = new THREE.MeshStandardMaterial({ color:0x182b60, metalness:0.6, roughness:0.3 });
+    const rimRing = new THREE.Mesh(rimGeo, rimMat); rimRing.rotation.x = Math.PI/2; rimRing.position.y = 1.02; rimRing.castShadow=true; group.add(rimRing);
+
+    // Aro LED interior
+    const ledGeo = new THREE.TorusGeometry(0.42, 0.015, 12, 64);
+    const ledMat = new THREE.MeshStandardMaterial({ color:0x0a1f2a, emissive:0x17f0a6, emissiveIntensity:0.0, roughness:0.7 });
+    const ledRing = new THREE.Mesh(ledGeo, ledMat); ledRing.rotation.x = Math.PI/2; ledRing.position.y = 1.0; group.add(ledRing);
+
+    // Sensor ultrasónico (frontal)
+    const sensor = new THREE.Group();
+    const sBase = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.08,0.01), new THREE.MeshStandardMaterial({color:0x1b325e, metalness:0.2, roughness:0.6}));
+    sBase.position.set(0, 0.9, 0.55);
+    const eye1 = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.02,24), new THREE.MeshStandardMaterial({color:0x9be7ff, emissive:0x4fc3f7, emissiveIntensity:0.5}));
+    eye1.rotation.x = Math.PI/2; eye1.position.set(-0.05,0,0.01);
+    const eye2 = eye1.clone(); eye2.position.x = 0.05;
+    sensor.add(sBase); sensor.add(eye1); sensor.add(eye2);
+    sensor.position.y = 0.0; group.add(sensor);
+
+    // Altavoz (lateral)
+    const spk = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.03,32), new THREE.MeshStandardMaterial({color:0x111, metalness:0.8, roughness:0.25}));
+    spk.rotation.x = Math.PI/2; spk.position.set(-0.62,0.55,0); group.add(spk);
+
+    // Bisagra y tapa
+    const hinge = new THREE.Object3D(); hinge.position.set(0,1.05,-0.28); // punto de giro
+    group.add(hinge);
+    const lidGeo = new THREE.BoxGeometry(0.75, 0.04, 0.75);
+    const lidMat = new THREE.MeshStandardMaterial({ color:0x13224a, metalness:0.35, roughness:0.35 });
+    const lid = new THREE.Mesh(lidGeo, lidMat); lid.castShadow=true; lid.receiveShadow=true;
+    lid.position.set(0,0,0.35); // delante del eje para que abra hacia atrás
+    hinge.add(lid);
+
+    // Sombra extra suave en la boca
+    const innerShadow = new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.45,0.01,48), new THREE.MeshStandardMaterial({color:0x050a17, roughness:1, metalness:0}));
+    innerShadow.position.set(0,0.99,0); group.add(innerShadow);
+
+    // Estados
+    let open = false, animLid = 0; // 0 cerrado, 1 abierto
+    const state = {
+      threshold: 35,
+      autoclose: 6,
+      cooldown: 4,
+      volume: 0.8,
+      lastPresence: 0,
+      lastMsg: 0
+    };
+
+    // UI inputs
+    const sDotEl = document.getElementById('sDot');
+    const sTxt = document.getElementById('sTxt');
+    const angTxt = document.getElementById('ang');
+    const th = document.getElementById('th');
+    const ac = document.getElementById('autoclose');
+    const cd = document.getElementById('cooldown');
+    const vol = document.getElementById('vol');
+    const logBox = document.getElementById('log');
+
+    th.oninput = ()=> state.threshold = Number(th.value);
+    ac.oninput = ()=> state.autoclose = Number(ac.value);
+    cd.oninput = ()=> state.cooldown = Number(cd.value);
+    vol.oninput = ()=> state.volume = Number(vol.value)/100;
+
+    // Utilidades
+    const log = (t)=>{ logBox.textContent += t+'\n'; logBox.scrollTop = logBox.scrollHeight; };
+    const setStatus = (on)=>{ sDotEl.classList.toggle('on', !!on); sTxt.textContent = on ? 'Activo' : 'Reposo'; ledMat.emissiveIntensity = on? 1.2 : 0.0; };
+
+    function openLid(){ open = true; setStatus(true); }
+    function closeLid(){ open = false; setStatus(false); }
+
+    function presence(){ state.lastPresence = performance.now(); openLid(); }
+
+    function maybeSayThanks(){
+      const now = performance.now();
+      if(now - state.lastMsg < state.cooldown*1000) return;
+      state.lastMsg = now;
+      const msgs = [
+        '¡Gracias por cuidar el medio ambiente!',
+        'Tu aporte hace la diferencia.',
+        '¡Bien hecho! Juntos mantenemos limpio este lugar.',
+        'Gracias por reciclar.'
+      ];
+      const t = msgs[Math.floor(Math.random()*msgs.length)];
+      speak(t); jingle(); log('AUDIO: '+t);
+    }
+
+    // Voz
+    function speak(text){
+      try{ const u = new SpeechSynthesisUtterance(text); u.lang='es-PE'; u.rate=1; u.pitch=1; u.volume=state.volume; speechSynthesis.speak(u);}catch(e){}
+    }
+    // Jingle simple con WebAudio
+    function jingle(){
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const o = ctx.createOscillator(); const g=ctx.createGain(); o.type='triangle'; o.connect(g); g.connect(ctx.destination);
+      g.gain.value = 0.06*state.volume; const t0 = ctx.currentTime; const notes=[523.25,659.25,783.99,1046.5];
+      notes.forEach((f,i)=> o.frequency.setValueAtTime(f, t0+i*0.085)); o.start(t0); o.stop(t0+0.36);
+    }
+
+    // Animación / resize
+    function resize(){
+      const parent = canvas.parentElement;
+      const w = Math.max(200, parent.clientWidth);
+      const h = Math.max(300, parent.clientHeight);
+      renderer.setSize(w, h, false);
+      camera.aspect = w/h; camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize); resize();
+
+    // Ticker
+    const clock = new THREE.Clock();
+    function tick(){
+      const dt = Math.min(clock.getDelta(), 0.033);
+
+      // Interpolar tapa
+      const target = open ? 1 : 0; // 0..1
+      animLid = THREE.MathUtils.damp(animLid, target, 6, dt); // amortiguado
+      const angle = THREE.MathUtils.lerp(0, THREE.MathUtils.degToRad(82), animLid);
+      hinge.rotation.x = angle;
+      angTxt.textContent = Math.round(THREE.MathUtils.radToDeg(angle)) + '°';
+
+      // Autocierre
+      if(open && performance.now() - state.lastPresence > state.autoclose*1000){ closeLid(); }
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
+    }
+    tick();
+
+    // Interacción: simulación de proximidad con el mouse
+    const rectFn = ()=> canvas.getBoundingClientRect();
+    canvas.addEventListener('mousemove', (e)=>{
+      const r = rectFn(); const cx = r.left + r.width/2; const cy = r.top + r.height*0.45; // centro aproximado de la boca
+      const dx = e.clientX - cx; const dy = e.clientY - cy; const distPx = Math.hypot(dx,dy);
+      const pxToCm = 0.35; // factor simple de conversión pantalla→cm (aproximado)
+      const distCm = distPx * pxToCm;
+      if(distCm < state.threshold){ presence(); }
+    });
+
+    // Botones
+    document.getElementById('btnDetect').onclick = ()=>{ presence(); log('Detección simulada'); };
+    document.getElementById('btnDrop').onclick = ()=>{ presence(); maybeSayThanks(); log('Depósito simulado'); };
+    document.getElementById('btnToggle').onclick = ()=>{ open?closeLid():openLid(); log('Toggle tapa'); };
+
+    // Vista alámbrica (wireframe) - fixed logic (save/restore original materials)
+    let wireOn = false;
+    const meshList = [body, rimRing, ledRing, sBase, eye1, spk, lid, innerShadow];
+    const originalMaterials = meshList.map(m => m.material);
+    const wireMat = new THREE.MeshBasicMaterial({ color:0x9fb0d5, wireframe:true });
+    document.getElementById('btnWire').onclick = ()=>{
+      wireOn = !wireOn;
+      if(wireOn){
+        meshList.forEach(m => m.material = wireMat);
+      } else {
+        meshList.forEach((m,i) => m.material = originalMaterials[i]);
+      }
+      log('Vista alámbrica: ' + (wireOn ? 'ON' : 'OFF'));
+    };
+
+    // Exportar GLB (para llevar a Blender/3D Builder)
+    document.getElementById('btnExport').onclick = ()=>{
+      const exporter = new GLTFExporter();
+      exporter.parse(group, (gltf)=>{
+        const blob = gltf instanceof ArrayBuffer
+          ? new Blob([gltf], {type: 'model/gltf-binary'})
+          : new Blob([JSON.stringify(gltf)], {type: 'model/gltf+json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'basurero.glb'; a.click();
+        log('Exportado GLB');
+      }, {binary:true});
+    };
+
+    // Inicial
+    setStatus(false);
+    log('Listo — mueve el ratón sobre el canvas para simular proximidad.');
+  </script>
+</body>
+</html>
